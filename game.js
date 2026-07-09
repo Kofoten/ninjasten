@@ -16,7 +16,9 @@
 
     const difficultyDecayFactor = 0.98;
     const variableWaitTimeLimit = 200;
+    const baseVariableWaitTime = 700;
     const minWaitTimeLimit = 100;
+    const baseMinWaitTime = 300;
     const angryWaitTime = 50;
     const baseMoveSpeed = 100;
     const angryMoveSpeed = 50;
@@ -29,8 +31,8 @@
 
     let lastFrameTime = null;
 
-    let variableWaitTime = 700;
-    let minWaitTime = 300;
+    let variableWaitTime = baseMinWaitTime;
+    let minWaitTime = baseMinWaitTime;
     let score = 0;
 
     let currentX = 0;
@@ -201,8 +203,9 @@
             score++;
             scorePoints.textContent = score;
 
-            variableWaitTime = variableWaitTimeLimit + (variableWaitTime - variableWaitTimeLimit) * difficultyDecayFactor;
-            minWaitTime = minWaitTimeLimit + (minWaitTime - minWaitTimeLimit) * difficultyDecayFactor;
+            invAngerLevel = invAngerLevel * difficultyDecayFactor;
+            variableWaitTime = variableWaitTimeLimit + Math.floor((baseVariableWaitTime - variableWaitTimeLimit) * invAngerLevel);
+            minWaitTime = minWaitTimeLimit + Math.floor((baseMinWaitTime - minWaitTimeLimit) * invAngerLevel);
 
             shadowX = currentX;
             shadowY = currentY;
@@ -214,7 +217,6 @@
             angerTimer = angerDuration;
             isAngry = true;
 
-            invAngerLevel = invAngerLevel * difficultyDecayFactor;
             stoneColor = tint(stoneColorBase, angerTint, 1 - invAngerLevel);
 
             console.log({ variableWaitTime, minWaitTime, stoneColor });
