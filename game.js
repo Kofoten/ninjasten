@@ -3,13 +3,21 @@
     const scorePoints = document.getElementById("scorePoints");
     const context = canvas.getContext("2d");
 
+    const stoneColorBase = "#7F8C8D";
+    const stoneEdgeColor = "#BDC3C7";
+    const scoreTextColor = "#2ECC71";
+    const angerColor = "#FF8C8D";
+    const angerTint = "#FF0000"
+
+    const inv255 = 1 / 255;
     const gameSize = 1024;
     canvas.width = gameSize;
     canvas.height = gameSize;
 
-    const baseWaitTime = 300;
+    const difficultyDecayFactor = 0.98;
+    const variableWaitTimeLimit = 200;
+    const minWaitTimeLimit = 100;
     const angryWaitTime = 50;
-    const minWaitTime = 1000;
     const baseMoveSpeed = 100;
     const angryMoveSpeed = 50;
     const angerDuration = 1000;
@@ -21,6 +29,8 @@
 
     let lastFrameTime = null;
 
+    let variableWaitTime = 700;
+    let minWaitTime = 300;
     let score = 0;
 
     let currentX = 0;
@@ -43,19 +53,28 @@
 
     let isAngry = false;
     let angerTimer = 0;
+    let invAngerLevel = 1;
+    let stoneColor = stoneColorBase;
 
-    function loadScore() {
-        const scoreStr = localStorage.getItem("score");
-        if (scoreStr !== undefined && scoreStr !== null) {
-            score = parseInt(scoreStr, 10);
-        }
-        scorePoints.textContent = score;
+    function rgbFromHex(hexColor) {
+        const c = parseInt(hexColor.slice(-6), 16);
+        return [(c >> 16) & 255, (c >> 8) & 255, c & 255];
     }
 
-    function saveScore() {
-        score++;
-        localStorage.setItem("score", score);
-        scorePoints.textContent = score;
+    function rgbToHex(rgbColor) {
+        const c = (Math.floor(rgbColor[0]) << 16) + (Math.floor(rgbColor[1]) << 8) + Math.floor(rgbColor[2]);
+        return c.toString(16).padStart(6, "0").padStart(7, "#");
+    }
+
+    function tint(baseColor, tintColor, tintWeight) {
+        var tintValues = rgbFromHex(tintColor);
+        var baseValues = rgbFromHex(baseColor);
+
+        const r = baseValues[0] + tintValues[0] * (1 - baseValues[0] * inv255) * tintWeight;
+        const g = baseValues[1] + tintValues[1] * (1 - baseValues[1] * inv255) * tintWeight;
+        const b = baseValues[2] + tintValues[2] * (1 - baseValues[2] * inv255) * tintWeight;
+
+        return rgbToHex([Math.min(255, r), Math.min(255, g), Math.min(255, b)]);
     }
 
     function easeInOutQuad(t) {
@@ -87,23 +106,27 @@
             context.save();
             context.translate(shadowX, shadowY);
             context.globalAlpha = shadowOpacity;
-            context.fillStyle = "#7F8C8D";
+            context.fillStyle = stoneColor;
             context.fill(stonePath);
             context.restore();
         }
 
         context.save();
         context.translate(currentX, currentY);
-        context.fillStyle = "#7F8C8D";
+        if (isAngry) {
+            context.fillStyle = angerColor;
+        } else {
+            context.fillStyle = stoneColor;
+        }
         context.fill(stonePath);
         context.lineWidth = 2;
-        context.strokeStyle = "#BDC3C7";
+        context.strokeStyle = stoneEdgeColor;
         context.stroke(stonePath);
         context.restore();
 
         if (isAngry) {
             context.save();
-            context.fillStyle = "#2ecc71";
+            context.fillStyle = scoreTextColor;
             context.font = "bold 32px Verdana";
             context.textAlign = "center";
             context.fillText("+1", scoreTextX, scoreTextY);
@@ -124,7 +147,7 @@
         if (isAngry) {
             angerTimer -= deltaTime;
             shadowOpacity = angerTimer / angerDuration;
-            scoreTextY -= scoreTextFloatSpeed / angerTimer;
+            scoreTextY -= scoreTextFloatSpeed / Math.max(8, angerTimer);
 
             if (angerTimer <= 0) {
                 angerTimer = 0;
@@ -146,7 +169,7 @@
                 if (isAngry) {
                     waitTimer = Math.random() * angryWaitTime;
                 } else {
-                    waitTimer = minWaitTime + Math.random() * baseWaitTime;
+                    waitTimer = minWaitTime + Math.random() * variableWaitTime;
                 }
             }
 
@@ -175,7 +198,11 @@
         const mouseY = internalY - currentY;
 
         if (context.isPointInPath(stonePath, mouseX, mouseY) && !isAngry) {
-            saveScore();
+            score++;
+            scorePoints.textContent = score;
+
+            variableWaitTime = variableWaitTimeLimit + (variableWaitTime - variableWaitTimeLimit) * difficultyDecayFactor;
+            minWaitTime = minWaitTimeLimit + (minWaitTime - minWaitTimeLimit) * difficultyDecayFactor;
 
             shadowX = currentX;
             shadowY = currentY;
@@ -183,16 +210,19 @@
 
             scoreTextX = internalX;
             scoreTextY = internalY;
-            scoreTextFloat = 0;
 
             angerTimer = angerDuration;
             isAngry = true;
+
+            invAngerLevel = invAngerLevel * difficultyDecayFactor;
+            stoneColor = tint(stoneColorBase, angerTint, 1 - invAngerLevel);
+
+            console.log({ variableWaitTime, minWaitTime, stoneColor });
 
             startMoving();
         }
     });
 
-    loadScore();
     startMoving();
     requestAnimationFrame(gameLoop);
 })();
